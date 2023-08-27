@@ -128,6 +128,7 @@ class ROME(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
+        self.return_mesh = getattr(self.args, 'return_mesh', False)
         self.init_networks(args)
 
     def init_networks(self, args):
@@ -272,10 +273,10 @@ class ROME(nn.Module):
         pred_img = torch.sigmoid(unet_outputs[:, :3])
         pred_soft_mask = torch.sigmoid(unet_outputs[:, 3:])
 
-        return_mesh = False
+        return_mesh = self.return_mesh
         if return_mesh:
             verts = result_dict['vertices_target'].cpu()
-            faces = self.parametric_avatar.render.faces.expand(verts.shape[0], -1, -1).long()
+            faces = self.parametric_avatar.render.faces.expand(verts.shape[0], -1, -1).long().cpu()
             result_dict['mesh'] = Meshes(verts=verts, faces=faces)
 
         result_dict['pred_target_unet_mask'] = pred_soft_mask

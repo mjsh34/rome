@@ -4,6 +4,7 @@ import os
 import importlib
 import argparse
 from glob import glob
+import datetime
 
 import face_alignment
 from torchvision import transforms
@@ -37,6 +38,8 @@ class Infer(object):
         if args.verbose:
             print('Initialize model.')
 
+        args.device = self.device
+        args.return_mesh = args.save_mesh
         self.model = ROME(args).eval().to(self.device)
         self.image_size = 256
         self.source_transform = transforms.Compose([
@@ -56,6 +59,8 @@ class Infer(object):
             transforms.ToTensor(),
         ])
 
+        self.save_dir = args.save_dir
+
     def setup_modnet(self):
         pretrained_ckpt = self.args.modnet_path
 
@@ -63,7 +68,7 @@ class Infer(object):
 
         modnet.load_state_dict(torch.load(pretrained_ckpt, map_location='cpu'))
         self.modnet = modnet.eval().to(self.device)
-        self.fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D,
+        self.fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D,
                                                flip_input=False, device='cuda' if torch.cuda.is_available() else 'cpu')
 
     def process_source_for_input_dict(self, source_img: Image, data_transform, crop_center=False):
@@ -77,7 +82,7 @@ class Infer(object):
             center[1] -= size // 6
             source_img = source_img.crop((center[0] - size, center[1] - size, center[0] + size, center[1] + size))
 
-        source_img = source_img.resize((self.image_size, self.image_size), Image.ANTIALIAS)
+        source_img = source_img.resize((self.image_size, self.image_size), Image.Resampling.LANCZOS)
         data_dict['source_img'] = data_transform(source_img)[None].to(self.device)
 
         pred_mask = obtain_modnet_mask(data_dict['source_img'][0], self.modnet, ref_size=512)[0]
@@ -187,7 +192,17 @@ class Infer(object):
         out = self.evaluate(source_image, driver_img, crop_center=True)
         render_result = tensor2image(out['render_masked'].cpu())
         shape_result = tensor2image(out['pred_target_shape_img'][0].cpu())
-        print('Successfully rendered')
+        timestamp = datetime.datetime.now().strftime('%Y%m%d%H:%M:%S')
+
+        render_result_img = Image.fromarray(render_result)
+        shape_result_img = Image.fromarray(shape_result)
+        render_result_img.save(os.path.join(self.save_dir, "{}_render_result.png".format(timestamp)))
+        shape_result_img.save(os.path.join(self.save_dir, "{}_shape_result.png".format(timestamp)))
+        if 'mesh' in out:
+            print("Saving mesh")
+            from pytorch3d.io import IO
+            IO().save_mesh(out['mesh'], "mesh.ply")
+        print("Successfully rendered to '{}' ({})".format(self.save_dir, timestamp))
 
 
 def main(args):
@@ -203,6 +218,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(conflict_handler='resolve')
     parser.add_argument('--save_dir', default='.', type=str)
     parser.add_argument('--save_render', default='True', type=args_utils.str2bool, choices=[True, False])
+    parser.add_argument('--save_mesh', action='store_true')
     parser.add_argument('--model_checkpoint', default=default_model_path, type=str)
     parser.add_argument('--modnet_path', default=default_modnet_path, type=str)
     parser.add_argument('--random_seed', default=0, type=int)

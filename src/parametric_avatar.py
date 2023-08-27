@@ -363,6 +363,7 @@ class ParametricAvatar(DECA):
 
         uv_deformations_codes = unet_deformer(deform_unet_inputs)
 
+        #breakpoint()
         mlp_input_uv_z = F.grid_sample(uv_deformations_codes, verts_uvs, align_corners=False)[..., 0].permute(0, 2, 1)
 
         mlp_input_uv = F.grid_sample(self.uv_grid.repeat(batch_size, 1, 1, 1).permute(0, 3, 1, 2),

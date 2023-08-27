@@ -1,3 +1,17 @@
+# Fork
+This project is a fork of https://github.com/SamsungLabs/rome made to work with a more recent version of PyTorch and with some additional features such as mesh export.
+
+## Installation
+Use `requirements_new.txt`. **We only tested `infer.py` on Ubuntu 22.04 with CUDA 11.8, and Python 3.10.12 installed.**
+Alternatively, you can try pip installing following packages in order, most of which have versions most recent/compatible at Aug 2023.
+- `numpy==1.23.1` (During development, this package was downgraded via `pip install -U numpy==1.23.1` right before installing `chumpy` to resolve incompatibility.)
+- `torch==2.0.2`
+- `git+https://github.com/facebookresearch/pytorch3d` (Tested on 27 Aug '23; after version 0.7.3; also see `requirements_new.txt for exact version`
+- `face-alignment==1.4.1`
+- `torchvision==0.15.2`
+- `kornia==0.7.0`
+- `chumpy==0.70`
+
 # Realistic one-shot mesh-based avatars
 
 ![tease](media/tease.gif)
@@ -21,7 +35,9 @@ Also, it can be replaced by another parametric model.
 ![tease](media/tease1.gif)
 
 ##  Getting started
-Initialise submodules and download [DECA](https://github.com/YadiraF/DECA) & [MODNet](https://github.com/ZHKKKe/MODNet) weights
+Initialise submodules and download [DECA](https://github.com/YadiraF/DECA) & [MODNet](https://github.com/ZHKKKe/MODNet) weights.
+Additional exposition: for DECA, put `deca_model.tar` and `generic_model.pkl` inside `DECA/data`, and
+for MODNet put 3 `.ckpt` files and one `.onnx` file you downloaded from their repo inside `MODNet/pretrained` directory the latter you may need to create.
 
 ```sh
 git submodule update --init --recursive
