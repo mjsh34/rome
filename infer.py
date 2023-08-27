@@ -183,31 +183,36 @@ class Infer(object):
         out['source_information']['data_dict'] = data_dict
         return out
 
-    def run_example(self):
-        src_path = 'data/imgs/taras1.jpg'
-        driver_path = 'data/imgs/taras1.jpg'
-
-        driver_img = Image.open(src_path)
-        source_image = Image.open(driver_path)
+    def run_inference(self, src_img_path, driver_img_path):
+        driver_img = Image.open(src_img_path)
+        source_image = Image.open(driver_img_path)
         out = self.evaluate(source_image, driver_img, crop_center=True)
         render_result = tensor2image(out['render_masked'].cpu())
         shape_result = tensor2image(out['pred_target_shape_img'][0].cpu())
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H:%M:%S')
+        name = os.path.splitext(os.path.basename(src_img_path))[0]
 
         render_result_img = Image.fromarray(render_result)
         shape_result_img = Image.fromarray(shape_result)
-        render_result_img.save(os.path.join(self.save_dir, "{}_render_result.png".format(timestamp)))
-        shape_result_img.save(os.path.join(self.save_dir, "{}_shape_result.png".format(timestamp)))
+        render_result_img.save(os.path.join(self.save_dir, "{}_render_result_{}.png".format(name, timestamp)))
+        shape_result_img.save(os.path.join(self.save_dir, "{}_shape_result_{}.png".format(name, timestamp)))
         if 'mesh' in out:
             print("Saving mesh")
             from pytorch3d.io import IO
-            IO().save_mesh(out['mesh'], "mesh.ply")
-        print("Successfully rendered to '{}' ({})".format(self.save_dir, timestamp))
+            IO().save_mesh(out['mesh'], "{}_mesh_{}.ply".format(name, timestamp))
+        print("Successfully rendered '{}' to '{}' (@{})".format(name, self.save_dir, timestamp))
 
 
 def main(args):
     infer = Infer(args)
-    infer.run_example()
+    if args.input_face:
+        src_img_path = args.input_face
+        driver_img_path = args.input_face
+    else:
+        src_img_path = "data/imgs/taras1.jpg"
+        driver_img_path = "data/imgs/taras1.jpg"
+        print("No input face provided. Using '{}' as input.".format(src_img_path))
+    infer.run_inference(src_img_path=src_img_path, driver_img_path=driver_img_path)
 
 
 if __name__ == "__main__":
@@ -216,6 +221,7 @@ if __name__ == "__main__":
     default_model_path = 'data/rome.pth'
 
     parser = argparse.ArgumentParser(conflict_handler='resolve')
+    parser.add_argument('--input_face', '-i')
     parser.add_argument('--save_dir', default='.', type=str)
     parser.add_argument('--save_render', default='True', type=args_utils.str2bool, choices=[True, False])
     parser.add_argument('--save_mesh', action='store_true')

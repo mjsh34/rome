@@ -6,7 +6,7 @@ Use `requirements_new.txt`. **We only tested `infer.py` on Ubuntu 22.04 with CUD
 Alternatively, you can try pip installing following packages in order, most of which have versions most recent/compatible at Aug 2023.
 - `numpy==1.23.1` (During development, this package was downgraded via `pip install -U numpy==1.23.1` right before installing `chumpy` to resolve incompatibility.)
 - `torch==2.0.2`
-- `git+https://github.com/facebookresearch/pytorch3d` (Tested on 27 Aug '23; after version 0.7.3; also see `requirements_new.txt for exact version`
+- `git+https://github.com/facebookresearch/pytorch3d` (Tested on 27 Aug '23; after version 0.7.3; also see `requirements_new.txt` for exact version)
 - `face-alignment==1.4.1`
 - `torchvision==0.15.2`
 - `kornia==0.7.0`
@@ -50,7 +50,7 @@ Put model into ```data``` folder.
 To verify the code with images run: 
 
 ```python
-python3 infer.py --deca DECA --rome data
+python3 infer.py -i data/imgs/taras1.jpg --deca DECA --rome data
 ```
 
 For linear basis download ROME model: [gDrive](https://drive.google.com/file/d/1Enw9MU9Xin77ws08y4pNqkMW0AyUIzv_/view?usp=share_link) (or camera model for voxceleb [gDrive](https://drive.google.com/file/d/1PXU96qfiCzaLxTS1TZKgoJZcwJ0n-mh6/view?usp=sharing)), [yDrive](https://disk.yandex.ru/d/u2hRXJGewJoCwQ)
