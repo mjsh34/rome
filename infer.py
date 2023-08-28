@@ -222,7 +222,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(conflict_handler='resolve')
     parser.add_argument('--input_face', '-i')
-    parser.add_argument('--save_dir', default='.', type=str)
+    parser.add_argument('--save_dir', '-o', default='./out', type=str)
     parser.add_argument('--save_render', default='True', type=args_utils.str2bool, choices=[True, False])
     parser.add_argument('--save_mesh', action='store_true')
     parser.add_argument('--model_checkpoint', default=default_model_path, type=str)
