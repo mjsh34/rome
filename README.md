@@ -47,10 +47,13 @@ Install requirements and download ROME model: [gDrive](https://drive.google.com/
 
 Put model into ```data``` folder.
 
-To verify the code with images run: 
+To verify the code with images (and save as mesh) run: 
 
 ```python
-python3 infer.py -i data/imgs/taras1.jpg --deca DECA --rome data
+python3 infer.py -i data/imgs/taras1.jpg --deca DECA --rome data --save_mesh
+
+# Different driver image
+python3 infer.py -i data/imgs/taras1.jpg -d data/imgs/taras2.jpg --deca DECA --rome data --save_mesh
 ```
 
 For linear basis download ROME model: [gDrive](https://drive.google.com/file/d/1Enw9MU9Xin77ws08y4pNqkMW0AyUIzv_/view?usp=share_link) (or camera model for voxceleb [gDrive](https://drive.google.com/file/d/1PXU96qfiCzaLxTS1TZKgoJZcwJ0n-mh6/view?usp=sharing)), [yDrive](https://disk.yandex.ru/d/u2hRXJGewJoCwQ)

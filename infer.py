@@ -9,6 +9,7 @@ import datetime
 import face_alignment
 from torchvision import transforms
 from PIL import Image
+import cv2
 import numpy as np
 import torch
 from pytorch3d.io import save_obj
@@ -184,22 +185,25 @@ class Infer(object):
         return out
 
     def run_inference(self, src_img_path, driver_img_path):
-        driver_img = Image.open(src_img_path)
-        source_image = Image.open(driver_img_path)
-        out = self.evaluate(source_image, driver_img, crop_center=True)
+        source_img = Image.open(src_img_path)
+        driver_img = Image.open(driver_img_path)
+        out = self.evaluate(source_img, driver_img, crop_center=True)
         render_result = tensor2image(out['render_masked'].cpu())
         shape_result = tensor2image(out['pred_target_shape_img'][0].cpu())
-        timestamp = datetime.datetime.now().strftime('%Y%m%d%H:%M:%S')
-        name = os.path.splitext(os.path.basename(src_img_path))[0]
+        timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
 
-        render_result_img = Image.fromarray(render_result)
-        shape_result_img = Image.fromarray(shape_result)
+        source_name = os.path.splitext(os.path.basename(src_img_path))[0]
+        driver_name = os.path.splitext(os.path.basename(driver_img_path))[0]
+        name = "{}-to-{}".format(source_name, driver_name)
+
+        render_result_img = Image.fromarray(cv2.cvtColor(render_result, cv2.COLOR_BGR2RGB))
+        shape_result_img = Image.fromarray(cv2.cvtColor(shape_result, cv2.COLOR_BGR2RGB))
         render_result_img.save(os.path.join(self.save_dir, "{}_render_result_{}.png".format(name, timestamp)))
         shape_result_img.save(os.path.join(self.save_dir, "{}_shape_result_{}.png".format(name, timestamp)))
         if 'mesh' in out:
             print("Saving mesh")
             from pytorch3d.io import IO
-            IO().save_mesh(out['mesh'], "{}_mesh_{}.ply".format(name, timestamp))
+            IO().save_mesh(out['mesh'], os.path.join(self.save_dir, "{}_mesh_{}.obj".format(name, timestamp)))
         print("Successfully rendered '{}' to '{}' (@{})".format(name, self.save_dir, timestamp))
 
 
@@ -207,11 +211,12 @@ def main(args):
     infer = Infer(args)
     if args.input_face:
         src_img_path = args.input_face
-        driver_img_path = args.input_face
+        driver_img_path = args.driver_face or src_img_path
     else:
         src_img_path = "data/imgs/taras1.jpg"
-        driver_img_path = "data/imgs/taras1.jpg"
-        print("No input face provided. Using '{}' as input.".format(src_img_path))
+        driver_img_path = src_img_path
+    print("Source face: '{}'".format(src_img_path))
+    print("Driver face: '{}'".format(driver_img_path))
     infer.run_inference(src_img_path=src_img_path, driver_img_path=driver_img_path)
 
 
@@ -222,6 +227,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(conflict_handler='resolve')
     parser.add_argument('--input_face', '-i')
+    parser.add_argument('--driver_face', '-d')
     parser.add_argument('--save_dir', '-o', default='./out', type=str)
     parser.add_argument('--save_render', default='True', type=args_utils.str2bool, choices=[True, False])
     parser.add_argument('--save_mesh', action='store_true')
