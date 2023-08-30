@@ -284,7 +284,7 @@ class ROME(nn.Module):
 
         return_mesh = self.return_mesh
         if return_mesh:
-            verts = result_dict['vertices_target'].cpu()
+            verts = result_dict['vertices'].cpu()
             faces = self.parametric_avatar.render.faces.expand(verts.shape[0], -1, -1).long().cpu()
             result_dict['mesh'] = Meshes(verts=verts, faces=faces)
 
