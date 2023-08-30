@@ -242,6 +242,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_dir', '-o', default='./out', type=str)
     parser.add_argument('--save_render', default='True', type=args_utils.str2bool, choices=[True, False])
     parser.add_argument('--save_mesh', action='store_true')
+    #parser.add_argument('--mesh_move_up', action='store_true')
     parser.add_argument('--save_albedo', action='store_true')
     parser.add_argument('--model_checkpoint', default=default_model_path, type=str)
     parser.add_argument('--modnet_path', default=default_modnet_path, type=str)
