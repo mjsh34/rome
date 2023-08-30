@@ -47,10 +47,10 @@ Install requirements and download ROME model: [gDrive](https://drive.google.com/
 
 Put model into ```data``` folder.
 
-To verify the code with images (and save as mesh) run: 
+To verify the code with images run: 
 
 ```python
-python3 infer.py -i data/imgs/taras1.jpg --deca DECA --rome data --save_mesh
+python3 infer.py -i data/imgs/taras1.jpg --deca DECA --rome data --save_mesh --save_albedo
 
 # Different driver image
 python3 infer.py -i data/imgs/taras1.jpg -d data/imgs/taras2.jpg --deca DECA --rome data --save_mesh

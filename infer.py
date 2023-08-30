@@ -198,7 +198,7 @@ class Infer(object):
         driver_name = os.path.splitext(os.path.basename(driver_img_path))[0]
         name = "{}-to-{}".format(source_name, driver_name)
 
-        getimg = lambda _a: Image.fromarray(cv2.cvtColor(_a, cv2.COLOR_BGR2RGB))
+        getimg = lambda _a: Image.fromarray(cv2.cvtColor(_a, cv2.COLOR_BGR2RGB if _a.shape[-1] == 3 else cv2.COLOR_BGRA2RGBA))
         getpath = lambda _n, _ext='.png': os.path.join(self.save_dir, f"{name}_{_n}_{timestamp}{_ext}")
 
         render_result_img = getimg(render_result)
@@ -210,12 +210,53 @@ class Infer(object):
         render_unmasked_result_img.save(getpath("render_unmasked_result"))
         shape_result_img.save(getpath("shape_result"))
         if albedo_result is not None:
-            getimg(albedo_result).save(getpath("albedo"))
+            albedo_img = self.hair_from_flame_tex(albedo_result)
+            getimg(albedo_img).save(getpath("albedo"))
         if 'mesh' in out:
             print("Saving mesh")
             from pytorch3d.io import IO
             IO().save_mesh(out['mesh'], getpath("mesh", ".obj"))
         print("Successfully rendered '{}' to '{}' (@{})".format(name, self.save_dir, timestamp))
+
+    def hair_from_flame_tex(self, tex):
+        c = tex.shape[-1]
+        assert c in (3, 4)
+        flame_hair_mask_fp = self.args.flame_hair_mask
+        print("hair_from_flame_tex: FLAME hair mask image: '{}'".format(flame_hair_mask_fp))
+        flame_hmask = cv2.imread(flame_hair_mask_fp, cv2.IMREAD_GRAYSCALE)
+        flame_hmask_b = flame_hmask.astype(bool)
+
+        # Extract within hair mask where hair is actually rendered (onto tex)
+        _, flame_hmask = cv2.threshold(flame_hmask, 127, 1, cv2.THRESH_BINARY)
+        tex_h = cv2.bitwise_and(tex, tex, mask=flame_hmask)
+        tex_intens = cv2.cvtColor(tex, cv2.COLOR_BGR2GRAY)
+        tex_hmask_b = flame_hmask_b & (tex_intens < 70)  # 'black' hair assumption
+
+        # Compute filling colour for missing hair part
+        mean_hair_bgr = [0, 0, 0]
+        for i in range(3):
+            mean_hair_bgr[i] = np.ma.median(np.ma.masked_where(~tex_hmask_b, tex[..., i])) or 0.0 # because np.ma.masked is output if no selection in which case default to 0.0
+        print("hair_from_flame_tex: Hair colour for filling (BGR): {} (currently only works for dark-haired individuals)".format(mean_hair_bgr))
+
+        tex_hmask = tex_hmask_b[..., None].astype(float)
+        tex_hmask = cv2.erode(tex_hmask, np.ones(2*[getattr(self.args, 'albedo_hair_transition_erosion_px', 9)], dtype=np.uint8), iterations=1)
+        tex_hmask = cv2.GaussianBlur(tex_hmask, 2*[1+2*getattr(self.args, 'albedo_hair_transition_blur_px', 13)], 0)
+        tex_hmask = tex_hmask[..., None]
+        # Merge hair parts
+        tex_out = (tex * tex_hmask) + (np.array(mean_hair_bgr, dtype=np.uint8)[None, None] * (1 - tex_hmask))
+        # Extract hair part (FLAME)
+        flame_hmask_f = flame_hmask.astype(float)
+        flame_hmask_soft = cv2.dilate(flame_hmask_f, np.ones(2*[getattr(self.args, 'albedo_hair_dilation_px', 4)], dtype=np.uint8), iterations=1)
+        flame_hmask_soft = cv2.GaussianBlur(flame_hmask_soft, 2*[1+2*getattr(self.args, 'albedo_hair_blur', 11)], 0)[..., None]
+        tex_out = tex_out * flame_hmask_soft
+        #cv2.imwrite('albedo_test.png', 
+        #        (tex_out * flame_hmask_soft) + (np.array([151, 192, 233], dtype=np.uint8)[None, None] * (1 - flame_hmask_soft))) # test w/ skin
+
+        if tex_out.shape[-1] == 3:
+            tex_out = np.concatenate([tex_out, 255*flame_hmask_soft], axis=-1)
+        tex_out = tex_out.astype(np.uint8)
+
+        return tex_out
 
 
 def main(args):
@@ -244,11 +285,18 @@ if __name__ == "__main__":
     parser.add_argument('--save_mesh', action='store_true')
     #parser.add_argument('--mesh_move_up', action='store_true')
     parser.add_argument('--save_albedo', action='store_true')
+    parser.add_argument('--albedo_hair_dilation_px', type=int, default=4)
+    parser.add_argument('--albedo_hair_blur_px', type=int, default=5)
+    parser.add_argument('--albedo_hair_transition_erosion_px', type=int, default=9)
+    parser.add_argument('--albedo_hair_transition_blur_px', type=int, default=6)
     parser.add_argument('--model_checkpoint', default=default_model_path, type=str)
     parser.add_argument('--modnet_path', default=default_modnet_path, type=str)
     parser.add_argument('--random_seed', default=0, type=int)
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--verbose', default='False', type=args_utils.str2bool, choices=[True, False])
+    parser.add_argument('--verbose', default='False', type=args_utils.str2bool,
+            choices=[True, False])
+    parser.add_argument('--flame_hair_mask',
+                    default="data/imgs/flame_hair_mask+.jpg")
     args, _ = parser.parse_known_args()
 
     parser = importlib.import_module(f'src.rome').ROME.add_argparse_args(parser)
