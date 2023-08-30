@@ -263,15 +263,24 @@ class ROME(nn.Module):
         for key, value in parametric_output.items():
             result_dict[key] = value
 
-        unet_inputs = rendered_texture * result_dict['pred_target_hard_mask']
+        def run_unet(_tex, _normal):
+            _n = _normal.permute(0, 2, 3, 1)
+            _n = harmonic_encoding.harmonic_encoding(_n, 6).permute(0, 3, 1, 2)
+            _i = torch.cat([_tex, _n], dim=1)
+            _o = self.unet(_i)
+            return torch.sigmoid(_o[:, :3]), torch.sigmoid(_o[:, 3:])
 
-        normals = result_dict['pred_target_normal'].permute(0, 2, 3, 1)
-        normal_inputs = harmonic_encoding.harmonic_encoding(normals, 6).permute(0, 3, 1, 2)
-        unet_inputs = torch.cat([unet_inputs, normal_inputs], dim=1)
-        unet_outputs = self.unet(unet_inputs)
+        pred_img, pred_soft_mask = run_unet(rendered_texture * result_dict['pred_target_hard_mask'], result_dict['pred_target_normal'])
 
-        pred_img = torch.sigmoid(unet_outputs[:, :3])
-        pred_soft_mask = torch.sigmoid(unet_outputs[:, 3:])
+        if getattr(self.args, 'save_albedo', None):
+            # TODO pred_target_normal is in image space not UV space
+            og_pn = result_dict['pred_target_normal']
+            #pn = og_pn[..., torch.randperm(og_pn.shape[-2]), :]
+            #pn = pn[..., torch.randperm(og_pn.shape[-1])]
+            pn = og_pn
+            pred_albedo, _ = run_unet(parametric_output['neural_texture'], pn)
+        else:
+            pred_albedo = None
 
         return_mesh = self.return_mesh
         if return_mesh:
@@ -284,5 +293,9 @@ class ROME(nn.Module):
         mask_pred = (result_dict['pred_target_unet_mask'][0].cpu() > self.mask_hard_threshold).float()
         mask_pred = mask_errosion(mask_pred.float().numpy() * 255)
         result_dict['render_masked'] = result_dict['pred_target_img'][0].cpu() * (mask_pred) + (1 - mask_pred)
+        result_dict['render'] = result_dict['pred_target_img'][0].cpu()
+
+        if pred_albedo is not None:
+            result_dict['albedo'] = pred_albedo[0].cpu()
 
         return result_dict

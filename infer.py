@@ -189,21 +189,32 @@ class Infer(object):
         driver_img = Image.open(driver_img_path)
         out = self.evaluate(source_img, driver_img, crop_center=True)
         render_result = tensor2image(out['render_masked'].cpu())
+        render_unmasked_result = tensor2image(out['render'].cpu())
         shape_result = tensor2image(out['pred_target_shape_img'][0].cpu())
+        albedo_result = tensor2image(out['albedo'].cpu()) if 'albedo' in out else None
         timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
 
         source_name = os.path.splitext(os.path.basename(src_img_path))[0]
         driver_name = os.path.splitext(os.path.basename(driver_img_path))[0]
         name = "{}-to-{}".format(source_name, driver_name)
 
-        render_result_img = Image.fromarray(cv2.cvtColor(render_result, cv2.COLOR_BGR2RGB))
-        shape_result_img = Image.fromarray(cv2.cvtColor(shape_result, cv2.COLOR_BGR2RGB))
-        render_result_img.save(os.path.join(self.save_dir, "{}_render_result_{}.png".format(name, timestamp)))
-        shape_result_img.save(os.path.join(self.save_dir, "{}_shape_result_{}.png".format(name, timestamp)))
+        getimg = lambda _a: Image.fromarray(cv2.cvtColor(_a, cv2.COLOR_BGR2RGB))
+        getpath = lambda _n, _ext='.png': os.path.join(self.save_dir, f"{name}_{_n}_{timestamp}{_ext}")
+
+        render_result_img = getimg(render_result)
+        render_unmasked_result_img = getimg(render_unmasked_result)
+        shape_result_img = getimg(shape_result)
+
+        os.makedirs(self.save_dir, exist_ok=True)
+        render_result_img.save(getpath("render_result"))
+        render_unmasked_result_img.save(getpath("render_unmasked_result"))
+        shape_result_img.save(getpath("shape_result"))
+        if albedo_result is not None:
+            getimg(albedo_result).save(getpath("albedo"))
         if 'mesh' in out:
             print("Saving mesh")
             from pytorch3d.io import IO
-            IO().save_mesh(out['mesh'], os.path.join(self.save_dir, "{}_mesh_{}.obj".format(name, timestamp)))
+            IO().save_mesh(out['mesh'], getpath("mesh", ".obj"))
         print("Successfully rendered '{}' to '{}' (@{})".format(name, self.save_dir, timestamp))
 
 
@@ -231,6 +242,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_dir', '-o', default='./out', type=str)
     parser.add_argument('--save_render', default='True', type=args_utils.str2bool, choices=[True, False])
     parser.add_argument('--save_mesh', action='store_true')
+    parser.add_argument('--save_albedo', action='store_true')
     parser.add_argument('--model_checkpoint', default=default_model_path, type=str)
     parser.add_argument('--modnet_path', default=default_modnet_path, type=str)
     parser.add_argument('--random_seed', default=0, type=int)

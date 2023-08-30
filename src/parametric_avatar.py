@@ -5,6 +5,7 @@ import sys
 import os
 from pytorch3d.structures import Meshes
 import pickle as pkl
+import numpy as np
 
 from DECA.decalib.utils import util
 from DECA.decalib.models.lbs import blend_shapes, batch_rodrigues
@@ -313,6 +314,19 @@ class ParametricAvatar(DECA):
             verts_parametric, rot_mats, root_joint, neck_joint = self.flame.reconstruct_exp_and_pose(
                 verts_neutral, torch.zeros_like(codedict['exp']))
         else:
+            # TEST: Modify camera transform
+            #l2t = lambda _x: torch.from_numpy(np.array(_x)).to(self.device)
+            ## Rotate 45 deg
+            #ff = 0.707
+            #cam_rot_mats_[0, 0, :, 0] = l2t([ff, 0, ff])
+            #cam_rot_mats_[0, 0, :, 1] = l2t([0, 1, 0])
+            #cam_rot_mats_[0, 0, :, 2] = l2t([-ff, 0, ff])
+
+            ## Face backwards
+            #cam_rot_mats_[0, 0, :, 0] = l2t([-1, 0, 0])
+            #cam_rot_mats_[0, 0, :, 1] = l2t([0, 1, 0])
+            #cam_rot_mats_[0, 0, :, 2] = l2t([0, 0, -1])
+
             verts_parametric, rot_mats, root_joint, neck_joint = self.flame.reconstruct_exp_and_pose(
                 verts_neutral,
                 codedict['exp'],
@@ -428,9 +442,11 @@ class ParametricAvatar(DECA):
         default_cam = torch.zeros_like(target_codedict['cam'])[:, :3]  # default cam has orthogonal projection
         default_cam[:, :1] = 5.0
 
+        # Pose FLAME face to match target (driver) shape
         cam_rot_mats, root_joint, verts_template, \
         shape_neutral_frontal, shape_parametric_frontal = self.get_parametric_vertices(target_codedict, neutral_pose)
 
+        # Add delta vt (after pose transformation apparently)
         if deformer_nets['mlp_deformer']:
             verts_deforms = self.deform_source_mesh(verts_template, neural_texture, deformer_nets)
 
@@ -439,9 +455,12 @@ class ParametricAvatar(DECA):
 
             vertex_normals = util.vertex_normals(verts_template, faces)
             verts_deforms = verts_deforms * vertex_normals
+        else:
+            raise AssertionError("No MLP Deformer")
 
         verts_final = verts_template + verts_deforms
 
+        # Render 'shape'
         _, verts_final_frontal, _ = util.batch_orth_proj(verts_final, default_cam, flame=self.flame)
         shape_final_frontal = self.render.render_shape(verts_final, verts_final_frontal)
 
@@ -451,10 +470,12 @@ class ParametricAvatar(DECA):
 
         shape_target = self.render.render_shape(verts_final, verts_target)
         _, verts_final_posed, _ = util.batch_orth_proj(verts_final.clone(), default_cam, flame=self.flame)
+        # shape_final_posed == shape_final_frontal?
         shape_final_posed = self.render.render_shape(verts_final, verts_final_posed)
         hair_neck_face_mesh_faces = torch.cat([self.faces_hair_mask, self.faces_neck_mask, self.faces_face_mask],
                                               dim=-1)
 
+        # Render (decalib.utils.renderer.SRenderY.forward)
         ops = self.render(verts_final, verts_target, face_masks=hair_neck_face_mesh_faces)
 
         alphas = ops['alpha_images']
@@ -521,15 +542,17 @@ class ParametricAvatar(DECA):
         source_image_crop, _, source_crop_bbox = self.preprocess_image(source_image, source_keypoints)
         target_image_crop, _, target_crop_bbox = self.preprocess_image(target_image, target_keypoints)
 
+        # ENCODE source image
         if neural_texture is None:
             source_codedict = self.encode(source_image_crop, source_crop_bbox)
             source_information = {}
             source_information['shape'] = source_codedict['shape']
             source_information['codedict'] = source_codedict
 
+        # ENCODE driver image (will be used for decoding after tweaking a few params)
         target_codedict = self.encode(target_image_crop, target_crop_bbox)
 
-        target_codedict['shape'] = source_information.get('shape')
+        target_codedict['shape'] = source_information.get('shape') # face shape (beta); preserve source shape
         target_codedict['batch_size'] = target_image.shape[0]
         delta_blendshapes = None
 
@@ -538,41 +561,20 @@ class ParametricAvatar(DECA):
             source_information['neural_texture'] = neural_texture
 
         if self.external_params['use_distill']:
-            delta_blendshapes = self.encode_by_distill(source_image)
+            raise NotImplementedError("Distillation is unsupported")
 
-            if self.external_params.get('use_mobile_version', False):
-                output2 = self.online_regressor(target_image)
-                codedict_ = {}
-                full_online = self.flame_config.model.n_exp + self.flame_config.model.n_pose + self.flame_config.model.n_cam
-                codedict_['shape'] = target_codedict['shape']
-                codedict_['batch_size'] = target_codedict['batch_size']
-                codedict_['exp'] = output2[:, : self.flame_config.model.n_exp]
-                codedict_['pose'] = output2[:,
-                                    self.flame_config.model.n_exp: self.flame_config.model.n_exp + self.flame_config.model.n_pose]
-                codedict_['cam'] = output2[:, full_online - self.flame_config.model.n_cam:full_online]
-                pose = codedict_['pose'].view(codedict_['batch_size'], -1, 3)
-                angle = torch.norm(pose + 1e-8, dim=2, keepdim=True)
-                rot_dir = pose / angle
-                codedict_['pose_rot_mats'] = batch_rodrigues(
-                    torch.cat([angle, rot_dir], dim=2).view(-1, 4)
-                ).view(codedict_['batch_size'], pose.shape[1], 3, 3)
-                target_codedict = codedict_
-
-            deformer_nets = {
-                'unet_deformer': None,
-                'mlp_deformer': None,
-            }
-
+        # DECODE
         opdict, visdict = self.decode(
             target_codedict,
             neutral_pose,
             deformer_nets,
             neural_texture=neural_texture,
-            verts_deforms=delta_blendshapes
+            verts_deforms=delta_blendshapes # None
         )
 
         outputs = {
             'rendered_texture': opdict['rendered_texture'],
+            'neural_texture': opdict['neural_texture'],
             'source_neural_texture': opdict['neural_texture'],
             'pred_target_normal': opdict['normals'],
             'pred_target_shape_img': visdict['shape_images'],
