@@ -1,3 +1,4 @@
+export LOCAL_RANK=1
 python3 -m torch.distributed.launch --master_port 12345 --nproc_per_node=1 train.py \
 --experiment_name test_train \
 --dataset_name voxceleb2hq_pairs \
@@ -41,7 +42,6 @@ python3 -m torch.distributed.launch --master_port 12345 --nproc_per_node=1 train
 --feature_matching_weight 1.0 \
 --vgg19_weight 1.0 \
 --vggface_weight 0.1 \
---vgggaze_weight 1.0 \
 --unet_seg_weight 10.0 \
 --unet_seg_type dice \
 --seg_hair_weight 10.0 \
@@ -68,4 +68,3 @@ python3 -m torch.distributed.launch --master_port 12345 --nproc_per_node=1 train
 --deca_path DECA \
 --rome_data_dir data \
 --face_parsing_path face-parsing.PyTorch
-

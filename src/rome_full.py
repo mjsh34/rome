@@ -134,7 +134,9 @@ class TrainableROME(ROME):
                                              device='cuda' if args.num_gpus else 'cpu')
 
         if self.weights['vgggaze']:
-            self.vgggaze_loss = GazeLoss('cuda' if args.num_gpus else 'cpu')
+            raise NotImplementedError("GazeLoss is disabled for now")
+            #self.vgggaze_loss = GazeLoss('cuda' if args.num_gpus else 'cpu')
+            self.vgggaze_loss = None
 
         if self.weights['keypoints_matching']:
             self.keypoints_matching_loss = KeypointsMatchingLoss()
@@ -1306,7 +1308,7 @@ class TrainableROME(ROME):
 
         parser.add_argument('--laplace_reg_type', default='uniform', type=str, choices=['uniform', 'cot', 'cotcurv'])
         parser.add_argument('--update_laplace_weight_every', default=0, type=int)
-        parser.add_argument('--vggface_path', default='data/resnet50_scratch_dag.pth', type=str)
+        parser.add_argument('--vggface_path', default='data/resnet50_scratch_weight.pkl', type=str)
         parser.add_argument('--use_gcn', default=False, action='store_true', help='')
         parser.add_argument('--dump_mesh', default=False, action='store_true',
                             help='dump batch of meshes')

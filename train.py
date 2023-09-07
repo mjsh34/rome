@@ -346,7 +346,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--random_seed', default=0, type=int)
     parser.add_argument('--num_gpus', default=1, type=int)
-    parser.add_argument('--local_rank', type=int)
+    parser.add_argument('--local-rank', type=int)
 
     parser.add_argument('--max_epochs', default=200, type=int)
     parser.add_argument('--checkpoint_freq', default=10, type=int)

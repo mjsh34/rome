@@ -12,6 +12,24 @@ Alternatively, you can try pip installing following packages in order, most of w
 - `kornia==0.7.0`
 - `chumpy==0.70`
 
+For train:
+- `tensorboardX==2.6.2.2`
+- `lpips==0.1.4`
+- `pytorch-msssim==1.0.0`
+
+### NVIDIA apex
+https://stackoverflow.com/questions/66610378/unencryptedcookiesessionfactoryconfig-error-when-importing-apex
+Tested 2023/09/01
+```
+git clone https://github.com/NVIDIA/apex
+cd apex
+python setup.py install
+```
+
+### Training
+- VGGFace2: Download [resnet50_scratch](https://drive.google.com/open?id=1gy9OJlVfBulWkIEnZhGpOLu084RgHw39) from https://github.com/cydonia999/VGGFace2-pytorch#pretrained-models and place it in `./data`.
+- [Face Parsing](https://github.com/zllrunning/face-parsing.PyTorch/tree/d2e684cf1588b46145635e8fe7bcc29544e5537e): Download and place pretrained model as explained [here](https://github.com/zllrunning/face-parsing.PyTorch/tree/d2e684cf1588b46145635e8fe7bcc29544e5537e#training).
+
 # Realistic one-shot mesh-based avatars
 
 ![tease](media/tease.gif)

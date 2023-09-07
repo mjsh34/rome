@@ -10,7 +10,7 @@ from .segmentation import SegmentationLoss, MultiScaleSilhouetteLoss
 from .chamfer_silhouette import ChamferSilhouetteLoss
 from .equivariance import EquivarianceLoss, LaplaceMeshLoss
 from .vgg2face import VGGFace2Loss
-from .gaze import GazeLoss
+#from .gaze import GazeLoss
 
 from .psnr import PSNR
 from .lpips import LPIPS
